@@ -1,0 +1,22 @@
+{
+    "name": "astehlik/github-backup",
+    "description": "Backup script for GitHub repositories",
+    "require": {
+        "symfony/console": "^3.0",
+        "guzzlehttp/guzzle": "^6.1",
+        "symfony/process": "^3.3"
+    },
+    "license": "GPL3+",
+    "authors": [
+        {
+            "name": "Alexander Stehlik",
+            "email": "alexander.stehlik@gmail.com"
+        }
+    ],
+    "bin": [
+        "ghb"
+    ],
+    "autoload": {
+        "psr-4": {"SWebhosting\\GithubBackup\\": "src/"}
+    }
+}
