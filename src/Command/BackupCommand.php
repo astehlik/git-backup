@@ -10,6 +10,8 @@ use Symfony\Component\Process\Process;
 
 class BackupCommand extends Command
 {
+    private $cloneBare = false;
+
     /**
      * @param array $repodata
      * @param string $backupDir
@@ -20,6 +22,9 @@ class BackupCommand extends Command
         $repoName = $this->getRepositoryPath($repodata);
         $cloneUrl = $this->getCloneUrl($repodata);
         $targetDir = $backupDir . DIRECTORY_SEPARATOR . $repoName;
+        if ($this->cloneBare) {
+            $targetDir .= '.git';
+        }
 
         $subdirectory = dirname($repoName);
         if ($subdirectory) {
@@ -36,7 +41,11 @@ class BackupCommand extends Command
             $output->writeln($fetchCommand, OutputInterface::VERBOSITY_DEBUG);
             $command = $fetchCommand;
         } else {
-            $cloneCommand = 'git clone -q --mirror ' . escapeshellarg($cloneUrl) . ' ' . escapeshellarg($targetDir);
+            $cloneCommand = 'git clone -q --mirror';
+            if ($this->cloneBare) {
+                $cloneCommand .= ' --bare';
+            }
+            $cloneCommand .= ' ' . escapeshellarg($cloneUrl) . ' ' . escapeshellarg($targetDir);
             $output->writeln($cloneCommand, OutputInterface::VERBOSITY_DEBUG);
             $command = $cloneCommand;
         }
@@ -70,6 +79,10 @@ class BackupCommand extends Command
         }
         /** @noinspection PhpIncludeInspection */
         include($configFile);
+
+        if (isset($cloneBare) && $cloneBare) {
+            $this->cloneBare = true;
+        }
 
         if (empty($requestUrl)) {
             throw new \InvalidArgumentException('No $requestUrl is configured in the current config file.');
