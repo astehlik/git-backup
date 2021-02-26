@@ -19,7 +19,15 @@ class BackupCommand extends Command
     {
         $repoName = $this->getRepositoryPath($repodata);
         $cloneUrl = $this->getCloneUrl($repodata);
-        $targetDir = $backupDir . $repoName;
+        $targetDir = $backupDir . DIRECTORY_SEPARATOR . $repoName;
+
+        $subdirectory = dirname($repoName);
+        if ($subdirectory) {
+            $subdirectoryPath = $backupDir . DIRECTORY_SEPARATOR . $subdirectory;
+            if (!is_dir($subdirectoryPath)) {
+                mkdir($subdirectoryPath);
+            }
+        }
 
         $output->writeln('Backing up ' . $repoName, OutputInterface::VERBOSITY_DEBUG);
 
@@ -101,6 +109,9 @@ class BackupCommand extends Command
 
     protected function getRepositoryPath(array $repodata)
     {
+        if (!empty($repodata['path_with_namespace'])) {
+            return $repodata['path_with_namespace'];
+        }
         if (!empty($repodata['path'])) {
             return $repodata['path'];
         }
