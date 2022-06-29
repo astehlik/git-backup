@@ -30,7 +30,7 @@ class BackupCommand extends Command
             );
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $this->output = $output;
 
@@ -68,6 +68,8 @@ class BackupCommand extends Command
         foreach ($repositories as $repositoryData) {
             $this->backupRepository($repositoryData, $backupDir);
         }
+
+        return self::SUCCESS;
     }
 
     private function backupRepository(array $repodata, string $backupDir): void
