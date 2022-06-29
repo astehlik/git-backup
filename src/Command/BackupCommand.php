@@ -2,6 +2,10 @@
 
 namespace SWebhosting\GithubBackup\Command;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Utils;
+use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -10,14 +14,63 @@ use Symfony\Component\Process\Process;
 
 class BackupCommand extends Command
 {
-    private $cloneBare = false;
+    private bool $cloneBare = false;
 
-    /**
-     * @param array $repodata
-     * @param string $backupDir
-     * @param OutputInterface $output
-     */
-    protected function backupRepository(array $repodata, $backupDir, OutputInterface $output)
+    private OutputInterface $output;
+
+    protected function configure()
+    {
+        $this
+            ->setName('create')
+            ->setDescription('Create / update a GitHub backup')
+            ->addArgument(
+                'config',
+                InputArgument::REQUIRED,
+                'The path to the config file.'
+            );
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output)
+    {
+        $this->output = $output;
+
+        $configFile = $input->getArgument('config');
+        if (!file_exists($configFile)) {
+            throw new RuntimeException(sprintf('The config file %s could not be found.', $configFile));
+        }
+        include($configFile);
+
+        if (isset($cloneBare) && $cloneBare) {
+            $this->cloneBare = true;
+        }
+
+        if (empty($requestUrl)) {
+            throw new InvalidArgumentException('No $requestUrl is configured in the current config file.');
+        }
+
+        if (empty($backupDir)) {
+            throw new InvalidArgumentException('No $backupDir is configured in the current config file.');
+        }
+        if (!is_dir($backupDir)) {
+            throw new RuntimeException(
+                sprintf('The configured $backupDir %s does not exist or is not a directory.', $backupDir)
+            );
+        }
+
+        $client = new Client();
+        $response = $client->request('GET', $requestUrl);
+        $repositories = Utils::jsonDecode($response->getBody(), true);
+
+        if (!is_array($repositories)) {
+            throw new RuntimeException('JSON response of GitHub API did not return an array: ' . $response->getBody());
+        }
+
+        foreach ($repositories as $repositoryData) {
+            $this->backupRepository($repositoryData, $backupDir);
+        }
+    }
+
+    private function backupRepository(array $repodata, string $backupDir): void
     {
         $repoName = $this->getRepositoryPath($repodata);
         $cloneUrl = $this->getCloneUrl($repodata);
@@ -34,82 +87,42 @@ class BackupCommand extends Command
             }
         }
 
-        $output->writeln('Backing up ' . $repoName, OutputInterface::VERBOSITY_DEBUG);
+        $this->output->writeln('Backing up ' . $repoName, OutputInterface::VERBOSITY_DEBUG);
 
-        if (is_dir($targetDir)) {
-            $fetchCommand = 'cd ' . escapeshellarg($targetDir) . '; git fetch --all -q > /dev/null';
-            $output->writeln($fetchCommand, OutputInterface::VERBOSITY_DEBUG);
-            $command = $fetchCommand;
-        } else {
-            $cloneCommand = 'git clone -q --mirror';
-            if ($this->cloneBare) {
-                $cloneCommand .= ' --bare';
-            }
-            $cloneCommand .= ' ' . escapeshellarg($cloneUrl) . ' ' . escapeshellarg($targetDir);
-            $output->writeln($cloneCommand, OutputInterface::VERBOSITY_DEBUG);
-            $command = $cloneCommand;
-        }
+        $command = $this->buildGitCommand($cloneUrl, $targetDir);
 
-        $process = new Process($command);
+        $process = Process::fromShellCommandline($command);
         $process->run();
 
         if (!$process->isSuccessful()) {
-            $output->writeln('The command "' . $command . '" failed.', OutputInterface::VERBOSITY_QUIET);
-            $output->writeln($process->getErrorOutput());
+            $this->output->writeln('The command "' . $command . '" failed.', OutputInterface::VERBOSITY_QUIET);
+            $this->output->writeln($process->getErrorOutput());
         }
     }
 
-    protected function configure()
+    private function buildGitCommand(string $cloneUrl, string $targetDir): string
     {
-        $this
-            ->setName('create')
-            ->setDescription('Create / update a GitHub backup')
-            ->addArgument(
-                'config',
-                InputArgument::REQUIRED,
-                'The path to the config file.'
-            );
+        if (is_dir($targetDir)) {
+            return $this->buildGitFetchCommand($targetDir);
+        }
+
+        $cloneCommand = 'git clone -q --mirror';
+        if ($this->cloneBare) {
+            $cloneCommand .= ' --bare';
+        }
+        $cloneCommand .= ' ' . escapeshellarg($cloneUrl) . ' ' . escapeshellarg($targetDir);
+        $this->output->writeln($cloneCommand, OutputInterface::VERBOSITY_DEBUG);
+        return $cloneCommand;
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    private function buildGitFetchCommand(string $targetDir): string
     {
-        $configFile = $input->getArgument('config');
-        if (!file_exists($configFile)) {
-            throw new \RuntimeException(sprintf('The config file %s could not be found.', $configFile));
-        }
-        /** @noinspection PhpIncludeInspection */
-        include($configFile);
-
-        if (isset($cloneBare) && $cloneBare) {
-            $this->cloneBare = true;
-        }
-
-        if (empty($requestUrl)) {
-            throw new \InvalidArgumentException('No $requestUrl is configured in the current config file.');
-        }
-
-        if (empty($backupDir)) {
-            throw new \InvalidArgumentException('No $backupDir is configured in the current config file.');
-        } elseif (!is_dir($backupDir)) {
-            throw new \RuntimeException(
-                sprintf('The configured $backupDir %s does not exist or is not a directory.', $backupDir)
-            );
-        }
-
-        $client = new \GuzzleHttp\Client();
-        $response = $client->request('GET', $requestUrl);
-        $repositories = json_decode($response->getBody(), true);
-
-        if (!$repositories || !is_array($repositories)) {
-            throw new \RuntimeException('Error decoding JSON response of GitHub API.');
-        }
-
-        foreach ($repositories as $repositoryData) {
-            $this->backupRepository($repositoryData, $backupDir, $output);
-        }
+        $fetchCommand = 'cd ' . escapeshellarg($targetDir) . '; git fetch --all -q > /dev/null';
+        $this->output->writeln($fetchCommand, OutputInterface::VERBOSITY_DEBUG);
+        return $fetchCommand;
     }
 
-    protected function getCloneUrl(array $repodata)
+    private function getCloneUrl(array $repodata)
     {
         if (!empty($repodata['clone_url'])) {
             return $repodata['clone_url'];
@@ -117,10 +130,10 @@ class BackupCommand extends Command
         if (!empty($repodata['ssh_url_to_repo'])) {
             return $repodata['ssh_url_to_repo'];
         }
-        throw new \RuntimeException('The clone URL could not be determined in the current repo data.');
+        throw new RuntimeException('The clone URL could not be determined in the current repo data.');
     }
 
-    protected function getRepositoryPath(array $repodata)
+    private function getRepositoryPath(array $repodata): string
     {
         if (!empty($repodata['path_with_namespace'])) {
             return $repodata['path_with_namespace'];
@@ -131,6 +144,6 @@ class BackupCommand extends Command
         if (!empty($repodata['name'])) {
             return $repodata['name'];
         }
-        throw new \RuntimeException('The repository path could not be determined in the current repo data.');
+        throw new RuntimeException('The repository path could not be determined in the current repo data.');
     }
 }
