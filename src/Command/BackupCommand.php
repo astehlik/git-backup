@@ -76,7 +76,7 @@ class BackupCommand extends Command
     {
         $repoName = $this->getRepositoryPath($repodata);
         $cloneUrl = $this->getCloneUrl($repodata);
-        $targetDir = $backupDir . DIRECTORY_SEPARATOR . $repoName;
+        $targetDir = rtrim($backupDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $repoName;
         if ($this->cloneBare) {
             $targetDir .= '.git';
         }
