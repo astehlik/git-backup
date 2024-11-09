@@ -62,7 +62,7 @@ class BackupCommand extends Command
 
         $client = new Client();
         $response = $client->request('GET', $requestUrl);
-        $repositories = Utils::jsonDecode($response->getBody(), true);
+        $repositories = Utils::jsonDecode($response->getBody()->getContents(), true);
 
         if (!is_array($repositories)) {
             throw new RuntimeException('JSON response of GitHub API did not return an array: ' . $response->getBody());
