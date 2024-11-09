@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SWebhosting\GithubBackup\Command;
 
 use GuzzleHttp\Client;
@@ -18,7 +20,7 @@ class BackupCommand extends Command
 
     private OutputInterface $output;
 
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('create')
@@ -26,7 +28,7 @@ class BackupCommand extends Command
             ->addArgument(
                 'config',
                 InputArgument::REQUIRED,
-                'The path to the config file.'
+                'The path to the config file.',
             );
     }
 
@@ -38,7 +40,8 @@ class BackupCommand extends Command
         if (!file_exists($configFile)) {
             throw new RuntimeException(sprintf('The config file %s could not be found.', $configFile));
         }
-        include($configFile);
+
+        include $configFile;
 
         if (isset($cloneBare) && $cloneBare) {
             $this->cloneBare = true;
@@ -53,7 +56,7 @@ class BackupCommand extends Command
         }
         if (!is_dir($backupDir)) {
             throw new RuntimeException(
-                sprintf('The configured $backupDir %s does not exist or is not a directory.', $backupDir)
+                sprintf('The configured $backupDir %s does not exist or is not a directory.', $backupDir),
             );
         }
 

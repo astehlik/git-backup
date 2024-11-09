@@ -1,12 +1,6 @@
 {
     "name": "astehlik/github-backup",
     "description": "Backup script for GitHub repositories",
-    "require": {
-        "php": "~8.1",
-        "symfony/console": "^6.1",
-        "guzzlehttp/guzzle": "^7.4",
-        "symfony/process": "^6.1"
-    },
     "license": "GPL3+",
     "authors": [
         {
@@ -14,10 +8,28 @@
             "email": "alexander.stehlik@gmail.com"
         }
     ],
+    "require": {
+        "php": "^8.3",
+        "guzzlehttp/guzzle": "^7.9",
+        "symfony/console": "^7.1",
+        "symfony/process": "^7.1"
+    },
+    "require-dev": {
+        "ergebnis/composer-normalize": "^2.44",
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "de-swebhosting/php-codestyle": "^5.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "SWebhosting\\GithubBackup\\": "src/"
+        }
+    },
     "bin": [
         "ghb"
     ],
-    "autoload": {
-        "psr-4": {"SWebhosting\\GithubBackup\\": "src/"}
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true
+        }
     }
 }
